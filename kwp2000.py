@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import struct
 from enum import IntEnum
+from can import Message
 
-from panda import Panda  # type: ignore
 from tp20 import TP20Transport
 
 
@@ -124,22 +124,23 @@ _negative_response_codes = {
 
 
 class KWP2000Client:
-    def __init__(self, transport: TP20Transport, debug: bool = False):
+    def __init__(self, transport: TP20Transport, debug: bool = True):
         self.transport = transport
         self.debug = debug
 
     def _kwp(self, service_type: SERVICE_TYPE, subfunction: int = None, data: bytes = None) -> bytes:
-        req = bytes([service_type])
-
+        req_data = bytes([service_type])
         if subfunction is not None:
-            req += bytes([subfunction])
+            req_data += bytes([subfunction])
         if data is not None:
-            req += data
+            req_data += data
 
         if self.debug:
-            print(f"KWP TX: {req.hex()}")
+            print(f"KWP TX: {req_data.hex()}")
 
-        self.transport.send(req)
+        req_message = Message(arbitration_id=0x7DF, data=req_data, is_extended_id=False)
+        self.transport.send(req_message)
+
         resp = self.transport.recv()
 
         if self.debug:
@@ -260,11 +261,8 @@ class KWP2000Client:
 
 
 if __name__ == "__main__":
-    p = Panda()
-    p.can_clear(0xFFFF)
-    p.set_safety_mode(Panda.SAFETY_ALLOUTPUT)
 
-    tp20 = TP20Transport(p, 0x9, debug=False)
+    tp20 = TP20Transport(bus, 0x9, debug=False)
     kwp_client = KWP2000Client(tp20, debug=True)
     kwp_client.diagnostic_session_control(SESSION_TYPE.DIAGNOSTIC)
 
